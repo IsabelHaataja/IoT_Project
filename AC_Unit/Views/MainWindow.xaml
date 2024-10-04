@@ -1,4 +1,4 @@
-﻿<Window x:Class="AC_Unit.MainWindow"
+﻿<Window x:Class="AC_Unit.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -6,9 +6,8 @@
         xmlns:local="clr-namespace:AC_Unit.Views"
         xmlns:viewmodels="clr-namespace:AC_Unit.ViewModels"
         d:DataContext="{d:DesignInstance Type=viewmodels:MainWindowViewModel}"
-        Background="CornflowerBlue"
         mc:Ignorable="d"
-        Title="Smarhome - AC UNIT" Height="450" Width="300">
+        Title="MainWindow" Height="450" Width="800">
     
     <Grid Margin="10">
         <ContentControl Content="{Binding CurrentViewModel}" />

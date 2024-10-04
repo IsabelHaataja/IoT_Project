@@ -23,4 +23,12 @@ public partial class SettingsViewModel : ObservableObject
         var mainWindow = _serviceProvider.GetRequiredService<MainWindowViewModel>();
         mainWindow.CurrentViewModel = _serviceProvider.GetRequiredService<HomeViewModel>();
     }
+
+    [RelayCommand]
+    private void CloseApp()
+    {
+        Environment.Exit(0);
+    }
 }
+
+

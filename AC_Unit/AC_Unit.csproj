@@ -10,16 +10,16 @@
 
   <ItemGroup>
     <None Remove="Resources\Fonts\fa-regular-400.ttf" />
+    <None Remove="Resources\Fonts\fa-solid-900.ttf" />
     <None Remove="Resources\Fonts\Poppins-Regular.ttf" />
     <None Remove="Resources\Fonts\Poppins-Thin.ttf" />
   </ItemGroup>
 
   <ItemGroup>
-    <Page Remove="Routing.xaml" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="Resources\Fonts\fa-regular-400.ttf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Fonts\fa-solid-900.ttf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Fonts\Poppins-Regular.ttf">

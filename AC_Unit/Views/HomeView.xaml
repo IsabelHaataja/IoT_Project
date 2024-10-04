@@ -9,15 +9,13 @@
              Background="CornflowerBlue"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="300">
-    <Grid>
+    
+    <Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="auto" />
         </Grid.RowDefinitions>
         
-        
-
-            <TextBlock Text="{Binding PageTitle}" />
             <Button Grid.Row="1" Style="{StaticResource btn-menu}" Command="{Binding GoToSettingsCommand}" Content="&#xf1de;" HorizontalAlignment="Right" />
 
     </Grid>

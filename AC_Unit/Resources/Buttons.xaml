@@ -4,7 +4,7 @@
     <Style x:Key="btn-menu" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="SlateGray" />
-        <Setter Property="FontFamily" Value="{StaticResource fa-regular}" />
+        <Setter Property="FontFamily" Value="{StaticResource fa-solid}" />
         <Setter Property="FontSize" Value="22" />
         <Setter Property="BorderThickness" Value="0" />
     </Style>
