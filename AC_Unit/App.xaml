@@ -4,6 +4,14 @@
              xmlns:local="clr-namespace:AC_Unit"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Routing.xaml" />
+                <ResourceDictionary Source="Resources\Fonts.xaml" />
+                <ResourceDictionary Source="Resources\Buttons.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+        
     </Application.Resources>
 </Application>

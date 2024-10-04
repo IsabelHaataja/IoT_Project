@@ -4,9 +4,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:AC_Unit.Views"
+             xmlns:viewmodels="clr-namespace:AC_Unit.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewmodels:SettingsViewModel}"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="450" d:DesignWidth="300">
     <Grid>
-            
+        <StackPanel>
+            <TextBlock Text="{Binding PageTitle}" />
+            <Button Command="{Binding GoToHomeCommand}" Content="Home" HorizontalAlignment="Left" />
+        </StackPanel>
     </Grid>
 </UserControl>

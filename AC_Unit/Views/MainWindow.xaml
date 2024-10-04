@@ -6,10 +6,11 @@
         xmlns:local="clr-namespace:AC_Unit.Views"
         xmlns:viewmodels="clr-namespace:AC_Unit.ViewModels"
         d:DataContext="{d:DesignInstance Type=viewmodels:MainWindowViewModel}"
+        Background="CornflowerBlue"
         mc:Ignorable="d"
-        Title="Smarhome - AC UNIT" Height="700" Width="400">
+        Title="Smarhome - AC UNIT" Height="450" Width="300">
     
-    <Grid>
+    <Grid Margin="10">
         <ContentControl Content="{Binding CurrentViewModel}" />
     </Grid>
 </Window>

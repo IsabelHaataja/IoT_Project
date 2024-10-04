@@ -4,9 +4,21 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:AC_Unit.Views"
+             xmlns:viewmodels="clr-namespace:AC_Unit.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewmodels:HomeViewModel}"
+             Background="CornflowerBlue"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="450" d:DesignWidth="300">
     <Grid>
-            
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="auto" />
+        </Grid.RowDefinitions>
+        
+        
+
+            <TextBlock Text="{Binding PageTitle}" />
+            <Button Grid.Row="1" Style="{StaticResource btn-menu}" Command="{Binding GoToSettingsCommand}" Content="&#xf1de;" HorizontalAlignment="Right" />
+
     </Grid>
 </UserControl>
