@@ -3,10 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:AC_Unit"
+        xmlns:local="clr-namespace:AC_Unit.Views"
+        xmlns:viewmodels="clr-namespace:AC_Unit.ViewModels"
+        d:DataContext="{d:DesignInstance Type=viewmodels:MainWindowViewModel}"
         mc:Ignorable="d"
         Title="Smarhome - AC UNIT" Height="700" Width="400">
+    
     <Grid>
-
+        <ContentControl Content="{Binding CurrentViewModel}" />
     </Grid>
 </Window>
