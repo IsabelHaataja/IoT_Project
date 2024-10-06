@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿
+namespace Iot_Recources.Models;
 
-namespace Iot_Recources.Models
+public class DeviceConfigInfo
 {
-    public class DeviceConfigInfo
-    {
-    }
+    public string Status { get; set; } = "on";
+    public DateTime? Created { get; set; } = DateTime.Now;
 }
