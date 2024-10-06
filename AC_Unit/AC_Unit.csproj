@@ -41,4 +41,8 @@
     <Folder Include="Resources\Buttons\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Iot_Recources\Iot_Recources.csproj" />
+  </ItemGroup>
+
 </Project>

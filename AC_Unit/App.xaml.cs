@@ -1,5 +1,6 @@
 ﻿using AC_Unit.ViewModels;
 using AC_Unit.Views;
+using Iot_Recources.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Windows;
@@ -13,6 +14,9 @@ public partial class App : Application
     {
         host = Host.CreateDefaultBuilder().ConfigureServices(services =>
         {
+            // TODO - add connectionstring to iot device
+            services.AddSingleton<IDeviceManager>(new DeviceManager(""));
+
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
 
@@ -29,7 +33,7 @@ public partial class App : Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {         
-        base.OnStartup(e);        
+        //base.OnStartup(e);        
         var mainWindow = host!.Services.GetRequiredService<MainWindow>();
         mainWindow.Show();
 
@@ -45,8 +49,19 @@ public partial class App : Application
         }
     }
 
-    protected override void OnExit(ExitEventArgs e)
+    protected override async void OnExit(ExitEventArgs e)
     {
+        var deviceManager = host!.Services.GetRequiredService<IDeviceManager>();
+
+        using var cts = new CancellationTokenSource();
+
+        try
+        {
+            await deviceManager.DisconnectAsync(cts.Token);
+            await host!.StopAsync(cts.Token);
+        }
+        catch { }
+
         base.OnExit(e);
     }
 }
