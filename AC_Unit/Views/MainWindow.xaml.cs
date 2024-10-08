@@ -1,25 +1,16 @@
 ﻿using AC_Unit.ViewModels;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Iot_Recources.Data;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace AC_Unit.Views;
 
 public partial class MainWindow : Window
 {
-    public MainWindow(MainWindowViewModel viewModel)
+    private readonly IDatabaseContext _context;
+    public MainWindow(MainWindowViewModel viewModel, IDatabaseContext context)
     {
         InitializeComponent();
         DataContext = viewModel;
+        _context = context;
     }
 }

@@ -1,25 +1,45 @@
 ﻿using AC_Unit.ViewModels;
 using AC_Unit.Views;
+using Iot_Recources.Data;
 using Iot_Recources.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Serilog;
 using System.Windows;
 
 namespace AC_Unit;
 public partial class App : Application
 {
     private static IHost? host;
-
     public App()
     {
-        host = Host.CreateDefaultBuilder().ConfigureServices(services =>
+        // logs to windows event viewer
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Warning()
+            .CreateLogger();
+
+        host = Host.CreateDefaultBuilder()
+            .ConfigureLogging((context, logging) =>
         {
+            logging.AddSerilog();
+        })
+        .ConfigureServices(services =>
+        {
+            services.AddLogging(configure => configure.AddConsole());
+            services.AddSingleton<IDatabaseContext>(sp =>
+            {
+                var logger = sp.GetRequiredService<ILogger<SqliteContext>>();
+                var directoryPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                return new SqliteContext(logger, () => directoryPath);
+            });
+
             // TODO - add connectionstring to iot device
             services.AddSingleton<IDeviceManager>(new DeviceManager(""));
 
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
-
+            
             services.AddSingleton<HomeView>();
             services.AddSingleton<HomeViewModel>();
 
@@ -27,8 +47,6 @@ public partial class App : Application
             services.AddSingleton<SettingsViewModel>();
 
         }).Build();
-
-
     }
 
     protected override async void OnStartup(StartupEventArgs e)
