@@ -2,48 +2,28 @@
 using Iot_Recources.Models;
 using Microsoft.Extensions.Logging;
 using SQLite;
+using System.Diagnostics;
+using System.Text;
 
 namespace Iot_Recources.Data;
 
 public class SqliteContext : IDatabaseContext
 {
     private readonly ILogger<SqliteContext> _logger;
-    private readonly SQLiteAsyncConnection? _context;
-    public SqliteContext(ILogger<SqliteContext> logger, Func<string> directoryPath, string databaseName = "iot_device_database.db3")
+    private SQLiteAsyncConnection _context;
+    private readonly string _deviceType = "AC";
+    public SqliteContext(ILogger<SqliteContext> logger)
     {
         _logger = logger;
 
-        try
-        {
-            var databsePath = Path.Combine(directoryPath(), databaseName);
-            if (string.IsNullOrWhiteSpace(databsePath))
-                throw new ArgumentException("The database path cannot be null or empty.");
-            
-            _context = new SQLiteAsyncConnection(databsePath);
+        string dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Smarthome_database.db3");
+        Debug.WriteLine($"Database Path: {Path.GetFullPath(dbPath)}");
 
-            CreateTablesAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex) 
-        {
-            _logger.LogError(ex.Message, "An error occurred while creating database connection.");
-        }
+        _context = new SQLiteAsyncConnection(dbPath);
+
+        SetDeviceTypeAsync(_deviceType).ConfigureAwait(false);
     }
-    public async Task CreateTablesAsync()
-    {
-        try
-        {
-            if (_context == null)
-                throw new ArgumentException("The database has not been initialized.");
 
-            await _context.CreateTableAsync<DeviceSettings>();
-
-            _logger.LogInformation("Database tables were created successfully.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex.Message, "An error occurred while creating database tables.");
-        }
-    }
     public async Task<ResponseResult<DeviceSettings>> GetSettingsAsync()
     {
         try
@@ -56,8 +36,30 @@ public class SqliteContext : IDatabaseContext
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred while getting device settings.");
+            _logger.LogDebug(ex, "An error occurred while getting device settings.");
             return ResponseResultFactory.Error<DeviceSettings>("An error occurred while getting device settings.");
+        }
+    }
+
+    public async Task<ResponseResult<DeviceSettings>> SetDeviceTypeAsync(string deviceType)
+    {
+        try
+        {
+            var deviceSettings = (await _context!.Table<DeviceSettings>().ToListAsync()).SingleOrDefault();
+            if (deviceSettings != null && deviceSettings!.Type == null)
+            {
+                deviceSettings.Type = deviceType;
+                await SaveSettingsAsync(deviceSettings);
+
+                return ResponseResultFactory.Success(deviceSettings);
+            }
+            else
+                return ResponseResultFactory.Error<DeviceSettings>("DeviceSettings type is already set.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "An error occurred while setting device settings type.");
+            return ResponseResultFactory.Error<DeviceSettings>("An error occurred while setting device settings type.");
         }
     }
 
@@ -89,8 +91,7 @@ public class SqliteContext : IDatabaseContext
 
                 if (response.Result != null)
                 {
-                    response.Result.Location = settings.Location;
-                    response.Result.ConnectionString = settings.ConnectionString;
+                    response.Result.IotHubConnectionString = settings.IotHubConnectionString;
                     response.Result.Type = settings.Type;
 
                     await _context!.UpdateAsync(settings);
@@ -110,6 +111,23 @@ public class SqliteContext : IDatabaseContext
         {
             _logger.LogError(ex, "Failed to save settings: device ID is null or empty.");
             return ResponseResultFactory.Error("Failed to save settings: device ID is null or empty.");
+        }
+    }
+
+    public async Task<string> GetDeviceConnectionStringAsync()
+    {
+        try
+        {
+            var response = await GetSettingsAsync();
+            Debug.WriteLine($"Got Device connection string {response.Result?.IotHubConnectionString}");
+
+            return response.Result?.IotHubConnectionString ?? string.Empty;
+
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while getting the connection string.");
+            return string.Empty;
         }
     }
 }
