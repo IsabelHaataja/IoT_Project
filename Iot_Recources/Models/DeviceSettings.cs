@@ -9,7 +9,9 @@ public class DeviceSettings
     [Key]
     [PrimaryKey]
     public string Id { get; set; } = null!;
-    public string? Location { get; set; }
     public string? Type { get; set; }
-    public string? ConnectionString { get; set; }
+    public string IotHubConnectionString { get; set; } = null!;
+    public string EmailAddress { get; set; } = null!;
+
+    // public string DeviceConnectionString { get; set; } =null!
 }
