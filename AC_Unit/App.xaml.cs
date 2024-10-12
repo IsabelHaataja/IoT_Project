@@ -27,15 +27,9 @@ public partial class App : Application
         .ConfigureServices(services =>
         {
             services.AddLogging(configure => configure.AddConsole());
-            services.AddSingleton<IDatabaseContext>(sp =>
-            {
-                var logger = sp.GetRequiredService<ILogger<SqliteContext>>();
-                var directoryPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                return new SqliteContext(logger, () => directoryPath);
-            });
 
-            // TODO - add connectionstring to iot device
-            services.AddSingleton<IDeviceManager>(new DeviceManager(""));
+            services.AddSingleton<ILogger<SqliteContext>, Logger<SqliteContext>>();
+            services.AddSingleton<IDatabaseContext, SqliteContext>();
 
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
@@ -50,20 +44,34 @@ public partial class App : Application
     }
 
     protected override async void OnStartup(StartupEventArgs e)
-    {         
-        //base.OnStartup(e);        
+    {
+        base.OnStartup(e);
         var mainWindow = host!.Services.GetRequiredService<MainWindow>();
         mainWindow.Show();
 
-        using var cts = new CancellationTokenSource();
+        var dbContext = host.Services.GetRequiredService<IDatabaseContext>();
+        var connectionString = await dbContext.GetDeviceConnectionStringAsync();
 
-        try
+        var deviceManager = new DeviceManager(connectionString);
+
+        // TODO - dynamically generate device id
+        var deviceId = "AC-45ffebf0"; 
+        var registrationResult = await deviceManager.RegisterDeviceAsync(deviceId);
+
+        if (registrationResult.Succeeded)
         {
-            await host!.RunAsync();
+            var deviceConnectionString = registrationResult.Result;
+
+            // Connect the device to IoT Hub
+            var connectionResult = await deviceManager.ConnectToIotHubAsync(deviceConnectionString);
+            if (!connectionResult.Succeeded)
+            {
+                Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
+            }
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine(ex.Message);
+            Console.WriteLine($"Failed to register device: {registrationResult.Error}");
         }
     }
 
