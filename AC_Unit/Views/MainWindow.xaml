@@ -7,9 +7,11 @@
         xmlns:viewmodels="clr-namespace:AC_Unit.ViewModels"
         d:DataContext="{d:DesignInstance Type=viewmodels:MainWindowViewModel}"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    
-    <Grid Margin="10">
-        <ContentControl Content="{Binding CurrentViewModel}" />
-    </Grid>
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="none"
+        Title="MainWindow" Height="600" Width="350">
+
+        <Grid>
+            <ContentControl Content="{Binding CurrentViewModel}" />
+        </Grid>        
 </Window>

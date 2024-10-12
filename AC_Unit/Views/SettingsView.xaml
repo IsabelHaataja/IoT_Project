@@ -16,21 +16,40 @@
     </UserControl.Resources>
     
     <Grid Margin="15">
+
         <Grid.RowDefinitions>
+            <RowDefinition Height="auto" />
             <RowDefinition Height="auto" />
             <RowDefinition Height="auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <Button Grid.Row="1" Style="{StaticResource btn-menu}" Command="{Binding GoToHomeCommand}" Content="&#xf060;" HorizontalAlignment="Left" />
+        <Button Grid.Row="1" Style="{StaticResource btn-menu}" Command="{Binding CloseAppCommand}" Content="&#xf011;" HorizontalAlignment="Right" />
+
         <TextBlock Grid.Row="0" Text="{Binding PageTitle}" />
-        <StackPanel Grid.Row="1" HorizontalAlignment="Center">
+        <StackPanel Grid.Row="2" HorizontalAlignment="Center">
+            <TextBlock Text="Configuration status:" />
             <TextBlock Text="{Binding IsConfigured}" />
-            <Button Content="Configure Settings" Command="{Binding ConfigureSettingsCommand}" Visibility="{Binding IsConfigured, Converter={StaticResource BoolConverter}}" Margin="20" Padding="20,10" />
-            <Button Content="Reset Settings" Command="{Binding ResetSettingsCommand}" Margin="20" Padding="20,10" />
+            <Button Content="Edit Settings" Command="{Binding ConfigureSettingsCommand}" Visibility="{Binding IsConfigured, Converter={StaticResource BoolConverter}}" Margin="10" Padding="20,10" />
+            <Button Content="Reset Settings" Command="{Binding ResetSettingsCommand}" Margin="10" Padding="20,10" />
         </StackPanel>
 
-    
-        <Button Grid.Row="2" Style="{StaticResource btn-menu}" Command="{Binding GoToHomeCommand}" Content="&#xf011;" HorizontalAlignment="Left" />
-        <Button Grid.Row="2" Style="{StaticResource btn-menu}" Command="{Binding CloseAppCommand}" Content="&#xf00d;" HorizontalAlignment="Right" />
+        <StackPanel Grid.Row="3">
+            <TextBlock Text="Device Settings:" FontWeight="bold" Margin="5"/>
+
+            <TextBlock Text="Device Id:" HorizontalAlignment="Left"/>
+            <TextBlock Text="{Binding Settings.Id }" HorizontalAlignment="right" Margin="5"/>
+
+            <TextBlock Text="Connection String:" />
+            <TextBlock Text="{Binding Settings.IotHubConnectionString }"  HorizontalAlignment="right" Margin="5" />
+
+            <TextBlock Text="Device Type:" />
+            <TextBlock Text="{Binding Settings.Type }"  HorizontalAlignment="right" Margin="5" />
+
+            <TextBlock Text="Email Address:" />
+            <TextBlock Text="{Binding Settings.EmailAddress }"  HorizontalAlignment="right" />
+        </StackPanel>
+
     </Grid>
 </UserControl>
