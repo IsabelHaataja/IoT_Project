@@ -14,18 +14,25 @@
         <Grid Margin="15">
             <Grid.RowDefinitions>
                 <RowDefinition Height="auto" />
+                <RowDefinition Height="auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="auto" />
             </Grid.RowDefinitions>
-        
-            <Button Grid.Row="0" Style="{StaticResource btn-menu}" Command="{Binding GoToSettingsCommand}" Content="&#xf1de;" HorizontalAlignment="Left" />
-            <Button Grid.Row="0" Style="{StaticResource btn-menu}" Command="{Binding CloseAppCommand}" Content="&#xf011;" HorizontalAlignment="Right" />
-
-            <StackPanel Grid.Row="2" HorizontalAlignment="Center" >
-                <Button Content="ON"  Margin="10" Padding="50,10" />
-                <Button Content="OFF"  Margin="10" Padding="50,10"  />
+          
+            <Button Grid.Row="0" Style="{StaticResource btn-settings}" Command="{Binding GoToSettingsCommand}" Content="&#xf1de;" HorizontalAlignment="Left" />
+            <Button Grid.Row="0" Style="{StaticResource btn-power}" Command="{Binding CloseAppCommand}" Content="&#xf011;" HorizontalAlignment="Right" />
+          
+            <StackPanel Grid.Row="1" Margin="20">
+                <TextBlock Text="Smart Home" FontSize="45" FontFamily="{StaticResource poppins-thin}" Foreground="White" HorizontalAlignment="Center"/>
+                <TextBlock Text="AC UNIT" FontSize="30" FontFamily="{StaticResource poppins-regular}" Foreground="White" HorizontalAlignment="Center" />
             </StackPanel>
 
+
+            <Grid Grid.Row="2" >
+                <TextBlock Text="&#xf863;" FontFamily="{StaticResource fa-solid}" FontSize="170" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+
+            <Button x:Name="status" Grid.Row="3" Content="placeholder" Style="{StaticResource btn-primary}" Margin="10" Padding="50,10" Click="status_Click"/>                
 
         </Grid>        
     </Border>

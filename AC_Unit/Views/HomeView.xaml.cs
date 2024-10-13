@@ -24,5 +24,10 @@ namespace AC_Unit.Views
         {
             InitializeComponent();
         }
+
+        private void status_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }

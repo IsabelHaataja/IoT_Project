@@ -7,9 +7,9 @@
              xmlns:converters="clr-namespace:AC_Unit.Converters"
              xmlns:viewmodels="clr-namespace:AC_Unit.ViewModels"
              d:DataContext="{d:DesignInstance Type=viewmodels:SettingsViewModel}"
-             Background="Wheat"
+             Background="CornflowerBlue"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="300">
+             d:DesignHeight="600" d:DesignWidth="350">
 
     <UserControl.Resources>
         <converters:InverseBooleanToVisibilityConverter x:Key="BoolConverter" />
@@ -21,35 +21,42 @@
             <RowDefinition Height="auto" />
             <RowDefinition Height="auto" />
             <RowDefinition Height="auto" />
+            <RowDefinition Height="auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-
-        <Button Grid.Row="1" Style="{StaticResource btn-menu}" Command="{Binding GoToHomeCommand}" Content="&#xf060;" HorizontalAlignment="Left" />
-        <Button Grid.Row="1" Style="{StaticResource btn-menu}" Command="{Binding CloseAppCommand}" Content="&#xf011;" HorizontalAlignment="Right" />
-
+        
         <TextBlock Grid.Row="0" Text="{Binding PageTitle}" />
+        
+        <Button Grid.Row="1" Style="{StaticResource btn-back}" Command="{Binding GoToHomeCommand}" Content="&#xf060;" HorizontalAlignment="Left" />
+        <Button Grid.Row="1" Style="{StaticResource btn-power}" Command="{Binding CloseAppCommand}" Content="&#xf011;" HorizontalAlignment="Right" />
+
         <StackPanel Grid.Row="2" HorizontalAlignment="Center">
-            <TextBlock Text="Configuration status:" />
+            <Button Content="Edit Settings" Style="{StaticResource btn-primary}" Command="{Binding ConfigureSettingsCommand}" Visibility="{Binding IsConfigured, Converter={StaticResource BoolConverter}}" />
+            <Button Content="Reset Settings" Style="{StaticResource btn-primary}" Command="{Binding ResetSettingsCommand}" />
+            <TextBlock Text="Configuration status:" FontFamily="{StaticResource poppins-regular}"  Foreground="White"/>
             <TextBlock Text="{Binding IsConfigured}" />
-            <Button Content="Edit Settings" Command="{Binding ConfigureSettingsCommand}" Visibility="{Binding IsConfigured, Converter={StaticResource BoolConverter}}" Margin="10" Padding="20,10" />
-            <Button Content="Reset Settings" Command="{Binding ResetSettingsCommand}" Margin="10" Padding="20,10" />
         </StackPanel>
 
-        <StackPanel Grid.Row="3">
-            <TextBlock Text="Device Settings:" FontWeight="bold" Margin="5"/>
+        <Grid Grid.Row="3" >
+            <TextBlock Text="&#xf013;" FontFamily="{StaticResource fa-solid}" FontSize="50" Foreground="White" Padding="15" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+        </Grid>
 
-            <TextBlock Text="Device Id:" HorizontalAlignment="Left"/>
-            <TextBlock Text="{Binding Settings.Id }" HorizontalAlignment="right" Margin="5"/>
+        <Border Grid.Row="4" BorderBrush="Transparent" BorderThickness="20" Width="Auto" Height="Auto" >
+            <StackPanel>
 
-            <TextBlock Text="Connection String:" />
-            <TextBlock Text="{Binding Settings.IotHubConnectionString }"  HorizontalAlignment="right" Margin="5" />
+                <TextBlock Text="Device Id:" FontFamily="{StaticResource poppins-regular}" Foreground="White" HorizontalAlignment="Left"/>
+                <TextBlock Text="{Binding Settings.Id }" HorizontalAlignment="right" Margin="5"/>
 
-            <TextBlock Text="Device Type:" />
-            <TextBlock Text="{Binding Settings.Type }"  HorizontalAlignment="right" Margin="5" />
+                <TextBlock Text="Connection String:" FontFamily="{StaticResource poppins-regular}" Foreground="White" />
+                <TextBlock Text="{Binding Settings.IotHubConnectionString }"  HorizontalAlignment="right" Margin="5" />
 
-            <TextBlock Text="Email Address:" />
-            <TextBlock Text="{Binding Settings.EmailAddress }"  HorizontalAlignment="right" />
-        </StackPanel>
+                <TextBlock Text="Device Type:" FontFamily="{StaticResource poppins-regular}" Foreground="White" />
+                <TextBlock Text="{Binding Settings.Type }"  HorizontalAlignment="right" Margin="5" />
+
+                <TextBlock Text="Email Address:" FontFamily="{StaticResource poppins-regular}" Foreground="White" />
+                <TextBlock Text="{Binding Settings.EmailAddress }"  HorizontalAlignment="right" />
+            </StackPanel>                
+        </Border>
 
     </Grid>
 </UserControl>
