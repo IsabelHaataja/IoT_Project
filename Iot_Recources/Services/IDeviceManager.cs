@@ -4,8 +4,8 @@ namespace Iot_Recources.Services;
 
 public interface IDeviceManager
 {
-    Task<ResponseResult<DeviceConnectionString>> RegisterDeviceAsync(string deviceId);
+    Task<ResponseResult<string>> RegisterDeviceAsync(string deviceId);
     Task<ResponseResult> DisconnectAsync(CancellationToken ct);
     Task<ResponseResult<string>> SendDataAsync(string content, CancellationToken ct);
-    Task<ResponseResult> ConnectToIotHubAsync(DeviceConnectionString deviceConnectionString);
+    Task<ResponseResult> ConnectToIotHubAsync(string deviceConnectionString);
 }
