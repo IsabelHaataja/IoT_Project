@@ -8,5 +8,6 @@ public interface IDatabaseContext
     Task<ResponseResult> ResetSettingsAsync();
     Task<ResponseResult> SaveSettingsAsync(DeviceSettings settings);
     Task<ResponseResult<DeviceSettings>> SetDeviceTypeAsync(string deviceType);
-    Task<string> GetDeviceConnectionStringAsync();
+    Task<string> GetIotHubConnectionStringAsync();
+    Task<ResponseResult> SaveDeviceConnectionStringAsync(string connectionString);
 }

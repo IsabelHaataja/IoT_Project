@@ -16,9 +16,20 @@ public class SqliteContext : IDatabaseContext
     {
         _logger = logger;
 
-        string dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Smarthome_database.db3");
-        Debug.WriteLine($"Database Path: {Path.GetFullPath(dbPath)}");
+        //string dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Smarthome_database.db3");
+        //Debug.WriteLine($"Database Path: {Path.GetFullPath(dbPath)}");
 
+        //_context = new SQLiteAsyncConnection(dbPath);
+
+        // Get the root path to AppData\Local in the same way as the MAUI app
+        string dbFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "SmarthomeDatabase");
+
+
+        // Construct the full path to the database file
+        string dbPath = Path.Combine(dbFolder, "Smarthome_database.db3");
+        Debug.WriteLine($"Database Path: {dbPath}");
+
+        // Initialize the SQLite connection
         _context = new SQLiteAsyncConnection(dbPath);
 
         SetDeviceTypeAsync(_deviceType).ConfigureAwait(false);
@@ -46,7 +57,7 @@ public class SqliteContext : IDatabaseContext
         try
         {
             var deviceSettings = (await _context!.Table<DeviceSettings>().ToListAsync()).SingleOrDefault();
-            if (deviceSettings != null && deviceSettings!.Type == null)
+            if (deviceSettings != null && deviceSettings.Type == null)
             {
                 deviceSettings.Type = deviceType;
                 await SaveSettingsAsync(deviceSettings);
@@ -113,16 +124,74 @@ public class SqliteContext : IDatabaseContext
             return ResponseResultFactory.Error("Failed to save settings: device ID is null or empty.");
         }
     }
-
-    public async Task<string> GetDeviceConnectionStringAsync()
+    
+    public async Task<ResponseResult> SaveDeviceConnectionStringAsync(string connectionString)
     {
         try
         {
             var response = await GetSettingsAsync();
+
+            if (response.Result != null)
+            {
+                response.Result.DeviceConnectionString = connectionString;
+                await _context.UpdateAsync(response.Result);
+
+                return ResponseResultFactory.Success("Device connection string updated successfully.");
+            }
+            else
+            {
+                return ResponseResultFactory.Error("No device settings found to update.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save device connection string.");
+            return ResponseResultFactory.Error("Failed to save device connection string.");
+        }
+    }
+
+    public async Task<ResponseResult<string>> GetDeviceConnectionStringAsync()
+    {
+        try
+        {
+            var response = await GetSettingsAsync();
+            Debug.WriteLine($"Got Device connection string {response.Result?.DeviceConnectionString}");
+
+            if (string.IsNullOrEmpty(response.Result?.DeviceConnectionString))
+            {
+                return ResponseResultFactory.Error<string>("Device connection string is missing.");
+            }
+            return ResponseResultFactory.Success(response.Result.DeviceConnectionString);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while getting the device connection string.");
+            return ResponseResultFactory.Error<string>($"An error occurred while getting the device connection string: {ex.Message}");
+        }
+    }
+
+    public async Task<string> GetIotHubConnectionStringAsync()
+    {
+        try
+        {
+            var response = await GetSettingsAsync();
+            var connectionString = response.Result?.IotHubConnectionString ?? string.Empty;
+
+            var hostName = connectionString.Split(';')
+                .FirstOrDefault(part => part.StartsWith("HostName=", StringComparison.OrdinalIgnoreCase))
+                ?.Split('=')[1];
+
+            // Append .azure-devices.net if missing
+            if (hostName != null && !hostName.EndsWith(".azure-devices.net"))
+            {
+                hostName += ".azure-devices.net";
+                // Rebuild the connection string with the correct HostName
+                connectionString = connectionString.Replace($"HostName={hostName.Substring(0, hostName.IndexOf('.'))}", $"HostName={hostName}");
+            }  
+            
             Debug.WriteLine($"Got Device connection string {response.Result?.IotHubConnectionString}");
 
-            return response.Result?.IotHubConnectionString ?? string.Empty;
-
+            return connectionString;
         }
         catch (Exception ex)
         {
