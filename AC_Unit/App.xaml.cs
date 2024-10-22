@@ -50,18 +50,23 @@ public partial class App : Application
         mainWindow.Show();
 
         var dbContext = host.Services.GetRequiredService<IDatabaseContext>();
-        var connectionString = await dbContext.GetDeviceConnectionStringAsync();
 
-        var deviceManager = new DeviceManager(connectionString);
+        var deviceTwinManager = new DeviceTwinManager(dbContext);
+        // Device Twin management
 
-        // TODO - dynamically generate device id
+        // TODO - move out of app.xaml
         var deviceId = "AC-45ffebf0"; 
+
+        var iotHubConnectionString = await dbContext.GetIotHubConnectionStringAsync(); 
+        var deviceManager = new DeviceManager(iotHubConnectionString, dbContext);
+
         var registrationResult = await deviceManager.RegisterDeviceAsync(deviceId);
 
         if (registrationResult.Succeeded)
         {
-            var deviceConnectionString = registrationResult.Result;
 
+            var deviceConnectionString = registrationResult.Result;
+      
             // Connect the device to IoT Hub
             var connectionResult = await deviceManager.ConnectToIotHubAsync(deviceConnectionString);
             if (!connectionResult.Succeeded)
@@ -73,6 +78,10 @@ public partial class App : Application
         {
             Console.WriteLine($"Failed to register device: {registrationResult.Error}");
         }
+
+        await deviceTwinManager.InitializeDeviceClientAsync();
+        await deviceManager.SetUpDirectMethodHandlersAsync();
+        await deviceTwinManager.StartSendingDataAsync();
     }
 
     protected override async void OnExit(ExitEventArgs e)
