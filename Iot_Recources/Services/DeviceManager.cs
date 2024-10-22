@@ -1,9 +1,11 @@
-﻿using Iot_Recources.Factories;
+﻿using Iot_Recources.Data;
+using Iot_Recources.Factories;
 using Iot_Recources.Models;
 using Microsoft.Azure.Devices;
 using Microsoft.Azure.Devices.Client;
 using Microsoft.Azure.Devices.Shared;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Text;
 
@@ -11,67 +13,82 @@ namespace Iot_Recources.Services;
 
 public class DeviceManager : IDeviceManager
 {
-    // add public connectionstring to add to constuctor in App.xaml
     private string _iotHubConnectionString;
     private DeviceClient? _client;
     private RegistryManager? _registryManager;
+    private readonly DeviceTwinManager _deviceTwinManager;
+    private readonly IDatabaseContext _context;
 
-    public DeviceManager(string iotHubConnectionstring)
+    public DeviceManager(string iotHubConnectionstring, IDatabaseContext context)
     {
         _iotHubConnectionString = iotHubConnectionstring;
+        _context = context;
     }
-    // Register a new device and return the connection string
-    public async Task<ResponseResult<DeviceConnectionString>> RegisterDeviceAsync(string deviceId)
+
+    public async Task<ResponseResult<string>> RegisterDeviceAsync(string deviceId)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(deviceId))
+            {
+                return ResponseResultFactory.Error<string>("DeviceId must not be null or empty.");
+            }
+
             Debug.WriteLine($"Using IoT Hub Connection String: {_iotHubConnectionString}");
 
             var hostName = _iotHubConnectionString.Split(';')
                 .FirstOrDefault(part => part.StartsWith("HostName=", StringComparison.OrdinalIgnoreCase))
                 ?.Split('=')[1];
 
+            if (!hostName.EndsWith(".azure-devices.net"))
+            {
+                hostName += ".azure-devices.net";
+            }
+
+            Debug.WriteLine($"Using IoT Hub Connection String with: {hostName}");
+
             if (hostName == null)
             {
-                return ResponseResultFactory.Error<DeviceConnectionString>("Invalid IoT Hub connection string. HostName not found.");
+                return ResponseResultFactory.Error<string>("Invalid IoT Hub connection string. HostName not found.");
             }
- 
-            _registryManager = RegistryManager.CreateFromConnectionString(_iotHubConnectionString);
 
+            _registryManager = RegistryManager.CreateFromConnectionString(_iotHubConnectionString);
             var existingDevice = await _registryManager.GetDeviceAsync(deviceId);
             if (existingDevice != null)
             {
-                return ResponseResultFactory.Error<DeviceConnectionString>($"Device '{deviceId}' already exists.");
+                return ResponseResultFactory.Error<string>($"Device '{deviceId}' already exists.");
             }
-
+            
             // Register the device
             var newDevice = new Device(deviceId);
             var device = await _registryManager.AddDeviceAsync(newDevice);
 
-            var deviceConnectionString = new DeviceConnectionString
-            {
-                HostName = hostName,           
-                DeviceId = device.Id,        
-                SharedAccessKey = device.Authentication.SymmetricKey.PrimaryKey
-            };
+            var deviceConnectionString = $"HostName={hostName};DeviceId={device.Id};SharedAccessKey={device.Authentication.SymmetricKey.PrimaryKey}";
 
-            Debug.WriteLine($"Device registered successfully. Connection String: {deviceConnectionString.ConnectionString}");
+            Debug.WriteLine($"Device registered successfully. Connection String: {deviceConnectionString}");
+            // Save the device connection string to DeviceSettings in the database
+            var dbResponse = await _context.SaveDeviceConnectionStringAsync(deviceConnectionString);
+
+            if (!dbResponse.Succeeded)
+            {
+                return ResponseResultFactory.Error<string>($"Failed to save device connection string: {dbResponse}");
+            }
 
             return ResponseResultFactory.Success(deviceConnectionString);
         }
         catch (Exception ex)
         {
 
-            return ResponseResultFactory.Error<DeviceConnectionString>($"Device registration failed: {ex.Message}");
+            return ResponseResultFactory.Error<string>($"Device registration failed: {ex.Message}");
         }
     }
-    public async Task<ResponseResult> ConnectToIotHubAsync(DeviceConnectionString deviceConnectionString)
+    public async Task<ResponseResult> ConnectToIotHubAsync(string deviceConnectionString)
     {
         try
         {
-            Debug.WriteLine($"Connecting to IoT Hub using connection string: {deviceConnectionString.ConnectionString}");
+            Debug.WriteLine($"Connecting to IoT Hub using connection string: {deviceConnectionString}");
 
-            _client = DeviceClient.CreateFromConnectionString(deviceConnectionString.ConnectionString, Microsoft.Azure.Devices.Client.TransportType.Mqtt);
+            _client = DeviceClient.CreateFromConnectionString(deviceConnectionString, Microsoft.Azure.Devices.Client.TransportType.Mqtt);
 
             await _client.OpenAsync();
 
@@ -131,7 +148,7 @@ public class DeviceManager : IDeviceManager
         return ResponseResultFactory.Error("Could not disconnect device client.");
     }
 
-    public async Task ReceiveCloudToDeviceMessagesAsync()
+    public async Task ReceiveCloudToDeviceMessagesAsync(CancellationToken ct)
     {
         if (_client == null)
         {
@@ -141,7 +158,7 @@ public class DeviceManager : IDeviceManager
 
         Debug.WriteLine("Listening for cloud-to-device messages...");
 
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
@@ -156,11 +173,11 @@ public class DeviceManager : IDeviceManager
                 // Process the message and determine if it's a command (e.g., turn on/off)
                 if (messageContent.Contains("TurnOn"))
                 {
-                    await UpdateDeviceTwinAsync(true);
+                    await _deviceTwinManager.UpdateDeviceTwinAsync(true);
                 }
                 else if (messageContent.Contains("TurnOff"))
                 {
-                    await UpdateDeviceTwinAsync(false);
+                    await _deviceTwinManager.UpdateDeviceTwinAsync(false);
                 }
 
                 // Complete the message after processing it
@@ -174,21 +191,45 @@ public class DeviceManager : IDeviceManager
             await Task.Delay(1000); // Poll every second
         }
     }
-    public async Task UpdateDeviceTwinAsync(bool isDeviceOn)
+
+    public async Task SetUpDirectMethodHandlersAsync()
     {
-        try
+        if (_client == null)
         {
-            var twinCollection = new TwinCollection();
-            twinCollection["isDeviceOn"] = isDeviceOn; // Update the reported properties
-
-            await _client.UpdateReportedPropertiesAsync(twinCollection);
-
-            Debug.WriteLine($"Device twin updated: isDeviceOn = {isDeviceOn}");
+            Debug.WriteLine("Device client not initialized.");
+            return;
         }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error updating device twin: {ex.Message}");
-        }
+
+        // Set a method handler for turning the device on
+        await _client.SetMethodHandlerAsync("TurnOn", TurnOnAsync, null);
+
+        // Set a method handler for turning the device off
+        await _client.SetMethodHandlerAsync("TurnOff", TurnOffAsync, null);
+
+        Debug.WriteLine("Direct method handlers set up.");
     }
 
+    private async Task<MethodResponse> TurnOnAsync(MethodRequest methodRequest, object userContext)
+    {
+        Debug.WriteLine("TurnOn method invoked.");
+        // Update the local state, and then update the twin
+        await _deviceTwinManager.UpdateDeviceTwinAsync(true); // true indicates "on"
+
+        var result = new { message = "Device turned on successfully" };
+        var jsonResponse = JsonConvert.SerializeObject(result);
+
+        return new MethodResponse(Encoding.UTF8.GetBytes(jsonResponse), 200);
+    }
+
+    private async Task<MethodResponse> TurnOffAsync(MethodRequest methodRequest, object userContext)
+    {
+        Debug.WriteLine("TurnOff method invoked.");
+        // Update the local state and the twin
+        await _deviceTwinManager.UpdateDeviceTwinAsync(false); // false indicates "off"
+
+        var result = new { message = "Device turned off successfully" };
+        var jsonResponse = JsonConvert.SerializeObject(result);
+
+        return new MethodResponse(Encoding.UTF8.GetBytes(jsonResponse), 200);
+    }
 }
