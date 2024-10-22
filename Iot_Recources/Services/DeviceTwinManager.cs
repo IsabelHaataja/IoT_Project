@@ -10,7 +10,6 @@ namespace Iot_Recources.Services;
 
 public class DeviceTwinManager
 {
-    // TODO retreive device's primary connectionstring from its IotHub
     private static DeviceClient _client;
     private readonly IDatabaseContext _context;
 
@@ -25,7 +24,7 @@ public class DeviceTwinManager
 
         if (response.Succeeded && response.Result != null)
         {
-            string connectionString = response.Result.IotHubConnectionString;
+            string connectionString = response.Result.DeviceConnectionString;
 
             if (!string.IsNullOrEmpty(connectionString))
             {       
@@ -45,7 +44,6 @@ public class DeviceTwinManager
     
     public async Task StartSendingDataAsync()
     {
-        // TODO - implement (usage) -->
         while (true)
         {
             var json = JsonConvert.SerializeObject(new DeviceConfigInfo());
@@ -79,7 +77,7 @@ public class DeviceTwinManager
         try
         {
             var twinCollection = new TwinCollection();
-            twinCollection["isDeviceOn"] = isDeviceOn; // Update the reported properties
+            twinCollection["isDeviceOn"] = isDeviceOn;
 
             await _client.UpdateReportedPropertiesAsync(twinCollection);
 
@@ -90,5 +88,4 @@ public class DeviceTwinManager
             Debug.WriteLine($"Error updating device twin: {ex.Message}");
         }
     }
-
 }
