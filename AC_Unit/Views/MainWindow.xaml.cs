@@ -14,8 +14,5 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         _context = context;
-        //_deviceTwinManager = new DeviceTwinManager(_context);
-        //_deviceTwinManager.InitializeDeviceClientAsync().Wait();
-        //Task.Run(() => _deviceTwinManager.StartSendingDataAsync());
     }
 }

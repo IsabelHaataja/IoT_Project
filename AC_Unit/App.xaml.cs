@@ -31,6 +31,9 @@ public partial class App : Application
             services.AddSingleton<ILogger<SqliteContext>, Logger<SqliteContext>>();
             services.AddSingleton<IDatabaseContext, SqliteContext>();
 
+            services.AddSingleton<IDeviceManager, DeviceManager>();
+            services.AddSingleton<IDeviceTwinManager, DeviceTwinManager>();
+
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
             
@@ -45,43 +48,58 @@ public partial class App : Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
-        base.OnStartup(e);
-        var mainWindow = host!.Services.GetRequiredService<MainWindow>();
-        mainWindow.Show();
+            base.OnStartup(e);
+            var mainWindow = host!.Services.GetRequiredService<MainWindow>();
+            mainWindow.Show();
 
-        var dbContext = host.Services.GetRequiredService<IDatabaseContext>();
-
-        var deviceTwinManager = new DeviceTwinManager(dbContext);
-        // Device Twin management
-
-        // TODO - move out of app.xaml
-        var deviceId = "AC-45ffebf0"; 
-
-        var iotHubConnectionString = await dbContext.GetIotHubConnectionStringAsync(); 
-        var deviceManager = new DeviceManager(iotHubConnectionString, dbContext);
-
-        var registrationResult = await deviceManager.RegisterDeviceAsync(deviceId);
-
-        if (registrationResult.Succeeded)
+        try
         {
+            var dbContext = host.Services.GetRequiredService<IDatabaseContext>();
+            var deviceManager = host.Services.GetRequiredService<IDeviceManager>();
+            var deviceTwinManager = host.Services.GetRequiredService<IDeviceTwinManager>();
 
-            var deviceConnectionString = registrationResult.Result;
-      
-            // Connect the device to IoT Hub
-            var connectionResult = await deviceManager.ConnectToIotHubAsync(deviceConnectionString);
-            if (!connectionResult.Succeeded)
+            await deviceManager.InitializeAsync();
+
+            var deviceId = "AC-45ffebf0";
+
+            var existingConnectionString = await dbContext.GetDeviceConnectionStringAsync();
+
+            if (string.IsNullOrEmpty(existingConnectionString))
             {
-                Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
-            }
-        }
-        else
-        {
-            Console.WriteLine($"Failed to register device: {registrationResult.Error}");
-        }
+                var registrationResult = await deviceManager.RegisterDeviceAsync(deviceId);
 
-        await deviceTwinManager.InitializeDeviceClientAsync();
-        await deviceManager.SetUpDirectMethodHandlersAsync();
-        await deviceTwinManager.StartSendingDataAsync();
+                if (registrationResult.Succeeded)
+                {
+                    var deviceConnectionString = registrationResult.Result;
+
+                    // Connect the device to IoT Hub
+                    var connectionResult = await deviceManager.ConnectToIotHubAsync(deviceConnectionString);
+                    if (!connectionResult.Succeeded)
+                    {
+                        Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to register device: {registrationResult.Error}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"A device is already registered. Connection String: {existingConnectionString}");
+                var connectionResult = await deviceManager.ConnectToIotHubAsync(existingConnectionString);
+                if (!connectionResult.Succeeded)
+                {
+                    Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
+                }
+            }
+
+            await deviceTwinManager.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
     }
 
     protected override async void OnExit(ExitEventArgs e)
