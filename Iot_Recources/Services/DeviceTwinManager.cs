@@ -8,57 +8,73 @@ using System.Text;
 
 namespace Iot_Recources.Services;
 
-public class DeviceTwinManager
+public class DeviceTwinManager : IDeviceTwinManager
 {
-    private static DeviceClient _client;
+    private DeviceClient _client;
+    private DeviceManager _deviceManager; 
     private readonly IDatabaseContext _context;
 
-    public DeviceTwinManager(IDatabaseContext context)
+    public DeviceTwinManager( IDatabaseContext context)
     {
         _context = context;
     }
-
-    public async Task InitializeDeviceClientAsync()
+    public async Task InitializeAsync()
     {
-        var response = await _context.GetSettingsAsync();
-
-        if (response.Succeeded && response.Result != null)
+        try
         {
-            string connectionString = response.Result.DeviceConnectionString;
+            var response = await _context.GetSettingsAsync();
 
-            if (!string.IsNullOrEmpty(connectionString))
-            {       
-                _client = DeviceClient.CreateFromConnectionString(connectionString, TransportType.Mqtt);
-                Debug.WriteLine("Device client initialized successfully.");
+            if (response.Succeeded && response.Result != null)
+            {
+                string connectionString = response.Result.DeviceConnectionString;
+
+                if (!string.IsNullOrEmpty(connectionString))
+                {
+                    _client = DeviceClient.CreateFromConnectionString(connectionString, TransportType.Mqtt);
+                    Debug.WriteLine("Device client initialized successfully.");
+                }
+                else
+                {
+                    Debug.WriteLine("Error: IoT Hub connection string is empty.");
+                }
+                await StartSendingDataAsync();
+
+                await _deviceManager.PollDeviceTwinForChangesAsync();
             }
             else
             {
-                Debug.WriteLine("Error: IoT Hub connection string is empty.");
+                Debug.WriteLine("Error: Unable to retrieve device settings.");
             }
         }
-        else
+        catch (Exception ex) 
         {
-            Debug.WriteLine("Error: Unable to retrieve device settings.");
-        }
-    }
-    
-    public async Task StartSendingDataAsync()
-    {
-        while (true)
-        {
-            var json = JsonConvert.SerializeObject(new DeviceConfigInfo());
-            await SendDataAsync(json);
-            Console.WriteLine($"Message was sent: {json}");
-            await Task.Delay(60 * 1000);
+            Debug.WriteLine(ex.Message);
         }
     }
 
+    public async Task StartSendingDataAsync()
+    {
+        try
+        {
+            while (true)
+            {
+                var json = JsonConvert.SerializeObject(new DeviceConfigInfo());
+                await SendDataAsync(json);
+                Console.WriteLine($"Message was sent: {json}");
+                await Task.Delay(60 * 1000);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex.Message);
+        }
+    }
 
     public async Task SendDataAsync(string content)
     {
         using var message = new Message(Encoding.UTF8.GetBytes(content))
         {
-            ContentType = "appliccation/json",
+            ContentType = "application/json",
             ContentEncoding = "utf-8"
         };
 
@@ -76,6 +92,12 @@ public class DeviceTwinManager
     {
         try
         {
+            if (_client == null)
+            {
+                Debug.WriteLine("Device client is not initialized.");
+                return;
+            }
+
             var twinCollection = new TwinCollection();
             twinCollection["isDeviceOn"] = isDeviceOn;
 
@@ -87,5 +109,10 @@ public class DeviceTwinManager
         {
             Debug.WriteLine($"Error updating device twin: {ex.Message}");
         }
+    }
+
+    public async Task CloseAsync()
+    {
+        await _client.CloseAsync();
     }
 }
