@@ -3,8 +3,6 @@ using Iot_Recources.Factories;
 using Iot_Recources.Models;
 using Microsoft.Azure.Devices;
 using Microsoft.Azure.Devices.Client;
-using Microsoft.Azure.Devices.Shared;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Text;
@@ -14,15 +12,82 @@ namespace Iot_Recources.Services;
 public class DeviceManager : IDeviceManager
 {
     private string _iotHubConnectionString;
+    private string _deviceConnectionString;
     private DeviceClient? _client;
     private RegistryManager? _registryManager;
-    private readonly DeviceTwinManager _deviceTwinManager;
+    private DeviceTwinManager _deviceTwinManager;
     private readonly IDatabaseContext _context;
 
-    public DeviceManager(string iotHubConnectionstring, IDatabaseContext context)
+    public event Action<string> OnDeviceStateChanged;
+
+    // tog bort string iotHubConnectionString från ctor
+
+    public DeviceManager(IDatabaseContext context)
     {
-        _iotHubConnectionString = iotHubConnectionstring;
         _context = context;
+    }
+    public async Task PollDeviceTwinForChangesAsync()
+    {
+        try
+        {
+            while (true)
+            {
+                if (_client == null)
+                {
+                    Debug.WriteLine("Device client not initialized.");
+                    return;
+                }
+
+                // Get the latest twin
+                var twin = await _client.GetTwinAsync();
+                var updatedProperties = twin.Properties.Desired;
+
+                // Check if the property has changed
+                if (updatedProperties.Contains("isDeviceOn"))
+                {
+                    var newState = updatedProperties["isDeviceOn"].ToString();
+                    // Notify the ViewModel that the state has changed
+                    OnDeviceStateChanged?.Invoke(newState);
+                }
+
+                // Sleep for a period before checking again
+                await Task.Delay(5000); // Check every 5 seconds (adjust as needed)
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error polling for device twin changes: {ex.Message}");
+        }
+
+    }
+    public async Task InitializeAsync()
+    {
+        try
+        {
+            _deviceConnectionString = await _context.GetDeviceConnectionStringAsync();
+
+            if (string.IsNullOrEmpty(_deviceConnectionString))
+            {
+                throw new InvalidOperationException("IoT Hub connection string cannot be null or empty.");
+            }
+
+            _client = DeviceClient.CreateFromConnectionString(_deviceConnectionString, Microsoft.Azure.Devices.Client.TransportType.Mqtt);
+
+            _registryManager = RegistryManager.CreateFromConnectionString(_deviceConnectionString);
+
+            _deviceTwinManager = new DeviceTwinManager(_context);
+            await _deviceTwinManager.InitializeAsync();
+        }
+        catch (Exception ex) 
+        {
+            Debug.WriteLine(ex);
+        }
+
+    }
+
+    public DeviceClient? GetDeviceClient()
+    {
+        return _client;
     }
 
     public async Task<ResponseResult<string>> RegisterDeviceAsync(string deviceId)
@@ -54,6 +119,7 @@ public class DeviceManager : IDeviceManager
 
             _registryManager = RegistryManager.CreateFromConnectionString(_iotHubConnectionString);
             var existingDevice = await _registryManager.GetDeviceAsync(deviceId);
+
             if (existingDevice != null)
             {
                 return ResponseResultFactory.Error<string>($"Device '{deviceId}' already exists.");
@@ -152,6 +218,7 @@ public class DeviceManager : IDeviceManager
     {
         if (_client == null)
         {
+            // TODO - initialize device client if not initialized
             Debug.WriteLine("Device client not initialized.");
             return;
         }
@@ -162,7 +229,6 @@ public class DeviceManager : IDeviceManager
         {
             try
             {
-                // Receive the message from the cloud
                 var receivedMessage = await _client.ReceiveAsync();
 
                 if (receivedMessage == null) continue;
@@ -170,14 +236,15 @@ public class DeviceManager : IDeviceManager
                 var messageContent = Encoding.ASCII.GetString(receivedMessage.GetBytes());
                 Debug.WriteLine($"Received message: {messageContent}");
 
-                // Process the message and determine if it's a command (e.g., turn on/off)
                 if (messageContent.Contains("TurnOn"))
                 {
                     await _deviceTwinManager.UpdateDeviceTwinAsync(true);
+                    OnDeviceStateChanged?.Invoke("On");
                 }
                 else if (messageContent.Contains("TurnOff"))
                 {
                     await _deviceTwinManager.UpdateDeviceTwinAsync(false);
+                    OnDeviceStateChanged?.Invoke("Off");
                 }
 
                 // Complete the message after processing it
@@ -194,42 +261,75 @@ public class DeviceManager : IDeviceManager
 
     public async Task SetUpDirectMethodHandlersAsync()
     {
-        if (_client == null)
+        try
         {
-            Debug.WriteLine("Device client not initialized.");
-            return;
+            if (_client == null)
+            {
+                Debug.WriteLine("Device client not initialized.");
+                return;
+            }
+
+            await _client.SetMethodHandlerAsync("TurnOn", TurnOnAsync, null);
+
+            await _client.SetMethodHandlerAsync("TurnOff", TurnOffAsync, null);
+
+            Debug.WriteLine("Direct method handlers set up.");
         }
-
-        // Set a method handler for turning the device on
-        await _client.SetMethodHandlerAsync("TurnOn", TurnOnAsync, null);
-
-        // Set a method handler for turning the device off
-        await _client.SetMethodHandlerAsync("TurnOff", TurnOffAsync, null);
-
-        Debug.WriteLine("Direct method handlers set up.");
+        catch (Exception e)
+        {
+            Debug.WriteLine($"Direct method handler could not be set up. {e.Message}");
+        }
     }
 
     private async Task<MethodResponse> TurnOnAsync(MethodRequest methodRequest, object userContext)
     {
-        Debug.WriteLine("TurnOn method invoked.");
-        // Update the local state, and then update the twin
-        await _deviceTwinManager.UpdateDeviceTwinAsync(true); // true indicates "on"
+        try
+        {
+            if (_deviceTwinManager == null)
+            {
+                Debug.WriteLine("DeviceTwinManager is not initialized.");
+                return new MethodResponse(Encoding.UTF8.GetBytes("DeviceTwinManager is not initialized."), 500);
+            }
 
-        var result = new { message = "Device turned on successfully" };
-        var jsonResponse = JsonConvert.SerializeObject(result);
+            Debug.WriteLine("TurnOn method invoked.");
 
-        return new MethodResponse(Encoding.UTF8.GetBytes(jsonResponse), 200);
+            await _deviceTwinManager.UpdateDeviceTwinAsync(true); // true indicates "on"
+
+            var result = new { message = "Device turned on successfully" };
+            var jsonResponse = JsonConvert.SerializeObject(result);
+
+            return new MethodResponse(Encoding.UTF8.GetBytes(jsonResponse), 200);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Device could not be turned on.{ex.Message}");
+            return new MethodResponse(500);
+        }
     }
 
     private async Task<MethodResponse> TurnOffAsync(MethodRequest methodRequest, object userContext)
     {
-        Debug.WriteLine("TurnOff method invoked.");
-        // Update the local state and the twin
-        await _deviceTwinManager.UpdateDeviceTwinAsync(false); // false indicates "off"
+        try
+        {
+            if (_deviceTwinManager == null)
+            {
+                Debug.WriteLine("DeviceTwinManager is not initialized.");
+                return new MethodResponse(Encoding.UTF8.GetBytes("DeviceTwinManager is not initialized."), 500);
+            }
 
-        var result = new { message = "Device turned off successfully" };
-        var jsonResponse = JsonConvert.SerializeObject(result);
+            Debug.WriteLine("TurnOff method invoked.");
 
-        return new MethodResponse(Encoding.UTF8.GetBytes(jsonResponse), 200);
+            await _deviceTwinManager.UpdateDeviceTwinAsync(false); // false indicates "off"
+
+            var result = new { message = "Device turned off successfully" };
+            var jsonResponse = JsonConvert.SerializeObject(result);
+
+            return new MethodResponse(Encoding.UTF8.GetBytes(jsonResponse), 200);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Device could not be turned off.{ex.Message}");
+            return new MethodResponse(500);
+        }
     }
 }
