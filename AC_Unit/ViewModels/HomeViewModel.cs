@@ -30,8 +30,8 @@ public partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     public string _pageTitle = "Home page";
 
-    //[ObservableProperty]
-    //private string _deviceState = "Off";
+    [ObservableProperty]
+    private string _deviceState = "Off";
 
     [ObservableProperty]
     private string _toggleButtonText = "Off";
