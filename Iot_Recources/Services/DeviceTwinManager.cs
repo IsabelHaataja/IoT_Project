@@ -10,81 +10,33 @@ namespace Iot_Recources.Services;
 
 public class DeviceTwinManager : IDeviceTwinManager
 {
-    private DeviceClient _client;
-    private DeviceManager _deviceManager; 
+    private readonly DeviceClient _client;
+    private DeviceManager _deviceManager;
     private readonly IDatabaseContext _context;
+    private CancellationToken _ct;
 
-    public DeviceTwinManager( IDatabaseContext context)
+    public DeviceTwinManager(IDatabaseContext context, DeviceClient client)
     {
         _context = context;
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+
     }
     public async Task InitializeAsync()
     {
         try
         {
-            var response = await _context.GetSettingsAsync();
-
-            if (response.Succeeded && response.Result != null)
+            if (_client == null)
             {
-                string connectionString = response.Result.DeviceConnectionString;
-
-                if (!string.IsNullOrEmpty(connectionString))
-                {
-                    _client = DeviceClient.CreateFromConnectionString(connectionString, TransportType.Mqtt);
-                    Debug.WriteLine("Device client initialized successfully.");
-                }
-                else
-                {
-                    Debug.WriteLine("Error: IoT Hub connection string is empty.");
-                }
-                await StartSendingDataAsync();
-
-                await _deviceManager.PollDeviceTwinForChangesAsync();
+                Console.WriteLine("Device client is not initialized.");
+                return;
             }
-            else
-            {
-                Debug.WriteLine("Error: Unable to retrieve device settings.");
-            }
-        }
-        catch (Exception ex) 
-        {
-            Debug.WriteLine(ex.Message);
-        }
-    }
 
-    public async Task StartSendingDataAsync()
-    {
-        try
-        {
-            while (true)
-            {
-                var json = JsonConvert.SerializeObject(new DeviceConfigInfo());
-                await SendDataAsync(json);
-                Console.WriteLine($"Message was sent: {json}");
-                await Task.Delay(60 * 1000);
-            }
+            Debug.WriteLine("Device client initialized and ready for twin operations.");
+
         }
         catch (Exception ex)
         {
             Debug.WriteLine(ex.Message);
-        }
-    }
-
-    public async Task SendDataAsync(string content)
-    {
-        using var message = new Message(Encoding.UTF8.GetBytes(content))
-        {
-            ContentType = "application/json",
-            ContentEncoding = "utf-8"
-        };
-
-        try
-        {
-            await _client.SendEventAsync(message);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error sending data: {ex.Message}");
         }
     }
 
@@ -92,18 +44,21 @@ public class DeviceTwinManager : IDeviceTwinManager
     {
         try
         {
+            Console.WriteLine("Updating device twin...");
             if (_client == null)
             {
                 Debug.WriteLine("Device client is not initialized.");
                 return;
             }
 
-            var twinCollection = new TwinCollection();
-            twinCollection["isDeviceOn"] = isDeviceOn;
+            var twinCollection = new TwinCollection()
+            {
+                ["deviceState"] = isDeviceOn ? "On" : "Off"
+            };
 
+            Console.WriteLine("Attempting to update device twin...");
             await _client.UpdateReportedPropertiesAsync(twinCollection);
-
-            Debug.WriteLine($"Device twin updated: isDeviceOn = {isDeviceOn}");
+            Console.WriteLine($"Device twin updated: isDeviceOn = {isDeviceOn}");
         }
         catch (Exception ex)
         {
