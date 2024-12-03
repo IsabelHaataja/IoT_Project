@@ -6,6 +6,7 @@ using Iot_Recources.Services;
 using Microsoft.Azure.Devices;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
+using System.Windows;
 
 namespace AC_Unit.ViewModels;
 
@@ -22,25 +23,26 @@ public partial class HomeViewModel : ObservableObject
         _deviceManager = deviceManager;
         _deviceTwinManager = deviceTwinManager;
 
+        StartListeningForMessages().ConfigureAwait(false);
         _deviceManager.OnDeviceStateChanged += UpdateDeviceState;
-        StartListeningForMessages();
     }
 
     [ObservableProperty]
     public string _pageTitle = "Home page";
 
-    [ObservableProperty]
-    private string _deviceState = "Off";
+    //[ObservableProperty]
+    //private string _deviceState = "Off";
 
     [ObservableProperty]
-    private string _toggleButtonText = "Turn On";
+    private string _toggleButtonText = "Off";
 
-    private void StartListeningForMessages()
+    private async Task StartListeningForMessages()
     {
         try
         {
+            Console.WriteLine("Starting to listen for messages...");
             _cts = new CancellationTokenSource();
-            Task.Run(async () => await _deviceManager.ReceiveCloudToDeviceMessagesAsync(CancellationToken.None));
+            await _deviceManager.ReceiveCloudToDeviceMessagesAsync(_cts.Token);
         }
         catch (Exception ex)
         {
@@ -50,17 +52,24 @@ public partial class HomeViewModel : ObservableObject
 
     private void UpdateToggleButtonText()
     {
-        ToggleButtonText = DeviceState == "On" ? "Turn Off" : "Turn On";
+        ToggleButtonText = DeviceState == "On" ? "OFF" : "ON";
     }
 
     public void UpdateDeviceState(string newState)
     {
-        DeviceState = newState;
-        UpdateToggleButtonText();
+        try
+        {
+            Console.WriteLine("Updating device state..");
+            DeviceState = newState;
+            UpdateToggleButtonText();
 
-        bool isDeviceOn = DeviceState == "Off";
-        _deviceTwinManager.UpdateDeviceTwinAsync(isDeviceOn).ConfigureAwait(false);
-
+            bool isDeviceOn = newState == "On";
+            _deviceTwinManager.UpdateDeviceTwinAsync(isDeviceOn).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("failed to update device state...");
+        }
     }
 
     [RelayCommand]
@@ -72,6 +81,8 @@ public partial class HomeViewModel : ObservableObject
     [RelayCommand]
     private void CloseApp()
     {
+        _cts?.Cancel();
+        _deviceManager.DisconnectAsync(_cts!.Token);
         Environment.Exit(0);
     }
 }
