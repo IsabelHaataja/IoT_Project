@@ -2,6 +2,7 @@
 using AC_Unit.Views;
 using Iot_Recources.Data;
 using Iot_Recources.Services;
+using Microsoft.Azure.Devices.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -31,6 +32,20 @@ public partial class App : Application
             services.AddSingleton<ILogger<SqliteContext>, Logger<SqliteContext>>();
             services.AddSingleton<IDatabaseContext, SqliteContext>();
 
+            services.AddSingleton<DeviceClient>(sp =>
+            {
+                var context = sp.GetRequiredService<IDatabaseContext>();
+                return Task.Run(async () =>
+                {
+                    var connectionString = await context.GetDeviceConnectionStringAsync();
+                    if (string.IsNullOrEmpty(connectionString))
+                    {
+                        throw new InvalidOperationException("Device connection string is null or empty.");
+                    }
+                    return DeviceClient.CreateFromConnectionString(connectionString, TransportType.Mqtt);
+                }).GetAwaiter().GetResult();
+            });
+
             services.AddSingleton<IDeviceManager, DeviceManager>();
             services.AddSingleton<IDeviceTwinManager, DeviceTwinManager>();
 
@@ -56,9 +71,8 @@ public partial class App : Application
         {
             var dbContext = host.Services.GetRequiredService<IDatabaseContext>();
             var deviceManager = host.Services.GetRequiredService<IDeviceManager>();
-            var deviceTwinManager = host.Services.GetRequiredService<IDeviceTwinManager>();
 
-            await deviceManager.InitializeAsync();
+            await deviceManager.InitializeDeviceClientAsync();
 
             var deviceId = "AC-45ffebf0";
 
@@ -86,15 +100,12 @@ public partial class App : Application
             }
             else
             {
-                Console.WriteLine($"A device is already registered. Connection String: {existingConnectionString}");
                 var connectionResult = await deviceManager.ConnectToIotHubAsync(existingConnectionString);
                 if (!connectionResult.Succeeded)
                 {
                     Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
                 }
             }
-
-            await deviceTwinManager.InitializeAsync();
         }
         catch (Exception ex)
         {
