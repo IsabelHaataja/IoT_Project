@@ -8,7 +8,6 @@ namespace AC_Unit.Views;
 public partial class MainWindow : Window
 {
     private readonly IDatabaseContext _context;
-    private readonly DeviceTwinManager _deviceTwinManager;
     public MainWindow(MainWindowViewModel viewModel, IDatabaseContext context)
     {
         InitializeComponent();

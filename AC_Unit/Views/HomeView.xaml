@@ -31,7 +31,7 @@
                 <TextBlock Text="&#xf863;" FontFamily="{StaticResource fa-solid}" FontSize="170" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
 
-            <Button x:Name="status" Grid.Row="3" Content="{Binding DeviceState}" Style="{StaticResource btn-primary}" Margin="10" Padding="50,10"/>                
+            <Button x:Name="status" Grid.Row="3" Content="{Binding ToggleButtonText}" Style="{StaticResource btn-primary}" Margin="10" Padding="50,10" IsEnabled="False"/>                
 
         </Grid>        
     </Border>
