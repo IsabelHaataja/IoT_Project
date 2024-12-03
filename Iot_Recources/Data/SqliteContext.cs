@@ -155,10 +155,11 @@ public class SqliteContext : IDatabaseContext
                 .FirstOrDefault(part => part.StartsWith("HostName=", StringComparison.OrdinalIgnoreCase))
                 ?.Split('=')[1];
 
-            // Append .azure-devices.net if missing
+            // add .azure-devices.net if missing
             if (hostName != null && !hostName.EndsWith(".azure-devices.net"))
             {
                 hostName += ".azure-devices.net";
+
                 // Rebuild the connection string with the correct HostName
                 connectionString = connectionString.Replace($"HostName={hostName.Substring(0, hostName.IndexOf('.'))}", $"HostName={hostName}");
             }
