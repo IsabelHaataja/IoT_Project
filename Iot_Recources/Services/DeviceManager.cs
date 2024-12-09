@@ -3,6 +3,7 @@ using Iot_Recources.Factories;
 using Iot_Recources.Models;
 using Microsoft.Azure.Devices;
 using Microsoft.Azure.Devices.Client;
+using Microsoft.Azure.Devices.Shared;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Text;
@@ -13,18 +14,18 @@ public class DeviceManager : IDeviceManager
 {
     private string _iotHubConnectionString;
     private string _deviceConnectionString;
-    private DeviceClient _client;
+    private DeviceClient? _client;
     private RegistryManager? _registryManager;
-    private DeviceTwinManager _deviceTwinManager;
+    //private DeviceTwinManager _deviceTwinManager;
     private readonly IDatabaseContext _context;
     private CancellationToken _ct;
 
     public event Action<string> OnDeviceStateChanged;
 
-    public DeviceManager(IDatabaseContext context, DeviceClient client)
+    public DeviceManager(IDatabaseContext context)
     {
         _context = context;
-        _client = client ?? throw new ArgumentNullException(nameof(client));
+        _client = null;
     }
 
     public async Task PollDeviceTwinForChangesAsync(CancellationToken ct)
@@ -33,7 +34,7 @@ public class DeviceManager : IDeviceManager
         {
             try
             {
-                if (_client == null) throw new InvalidOperationException("Device client not initialized.");
+                if (_client == null) throw new InvalidOperationException("Device client not initialized for polling.");
 
                 var twin = await _client.GetTwinAsync();
                 if (twin.Properties.Desired.Contains("deviceState"))
@@ -50,37 +51,6 @@ public class DeviceManager : IDeviceManager
             await Task.Delay(2000, ct);
         }
     }
-    public async Task InitializeDeviceClientAsync()
-    {
-        try
-        {
-            if (_client == null)
-            {
-
-                _deviceConnectionString = await _context.GetDeviceConnectionStringAsync();
-
-                if (string.IsNullOrEmpty(_deviceConnectionString))
-                {
-                    throw new InvalidOperationException("IoT Hub connection string cannot be null or empty.");
-                }
-            }
-
-            _iotHubConnectionString = await _context.GetIotHubConnectionStringAsync();
-
-            _registryManager = RegistryManager.CreateFromConnectionString(_iotHubConnectionString);
-
-            _deviceTwinManager = new DeviceTwinManager(_context, _client);
-            
-            //await _deviceTwinManager.InitializeAsync();
-
-            await PollDeviceTwinForChangesAsync(_ct);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine(ex);
-        }
-
-    }
 
     public async Task<ResponseResult<string>> RegisterDeviceAsync(string deviceId)
     {
@@ -90,10 +60,11 @@ public class DeviceManager : IDeviceManager
             {
                 return ResponseResultFactory.Error<string>("DeviceId must not be null or empty.");
             }
+            var iotHubConnectionString = await _context.GetIotHubConnectionStringAsync();
 
-            Debug.WriteLine($"Using IoT Hub Connection String: {_iotHubConnectionString}");
+            Debug.WriteLine($"Using IoT Hub Connection String: {iotHubConnectionString}");
 
-            var hostName = _iotHubConnectionString.Split(';')
+            var hostName = iotHubConnectionString.Split(';')
                 .FirstOrDefault(part => part.StartsWith("HostName=", StringComparison.OrdinalIgnoreCase))
                 ?.Split('=')[1];
 
@@ -109,7 +80,7 @@ public class DeviceManager : IDeviceManager
                 return ResponseResultFactory.Error<string>("Invalid IoT Hub connection string. HostName not found.");
             }
 
-            _registryManager = RegistryManager.CreateFromConnectionString(_iotHubConnectionString);
+            _registryManager = RegistryManager.CreateFromConnectionString(iotHubConnectionString);
             var existingDevice = await _registryManager.GetDeviceAsync(deviceId);
 
             if (existingDevice != null)
@@ -143,18 +114,34 @@ public class DeviceManager : IDeviceManager
     {
         try
         {
-            Debug.WriteLine($"Connecting to IoT Hub using connection string: {deviceConnectionString}");
+            if (_client == null)
+            {
+                _client = DeviceClient.CreateFromConnectionString(deviceConnectionString);
 
-            _client = DeviceClient.CreateFromConnectionString(deviceConnectionString, Microsoft.Azure.Devices.Client.TransportType.Mqtt);
+                await _client.OpenAsync();
 
-            await _client.OpenAsync();
+                Console.WriteLine("Device connected to IoT Hub.");
 
+                return ResponseResultFactory.Success("IotHub connection succeeded.");
+            }
+
+            await PollDeviceTwinForChangesAsync(_ct);
+
+            Console.WriteLine("DeviceClient is already initialized.");
             return ResponseResultFactory.Success("IotHub connection succeeded.");
         }
         catch (Exception ex)
         {
-            return ResponseResultFactory.Error($"IotHub connection failed: {ex}");
+            return ResponseResultFactory.Error($"IotHub connection failed: {ex.Message}");
         }
+    }
+    public DeviceClient GetDeviceClient()
+    {
+        if (_client == null)
+        {
+            throw new InvalidOperationException("DeviceClient is not initialized. Please connect first.");
+        }
+        return _client;
     }
     public async Task<ResponseResult<string>> SendDataAsync(string content, CancellationToken ct)
     {
@@ -209,7 +196,7 @@ public class DeviceManager : IDeviceManager
     {
         if (_client == null)
         {
-            Debug.WriteLine("Device client not initialized.");
+            Debug.WriteLine("Device client not initialized for C2D.");
             return;
         }
 
@@ -226,15 +213,15 @@ public class DeviceManager : IDeviceManager
                 var messageContent = Encoding.ASCII.GetString(receivedMessage.GetBytes());
                 Console.WriteLine($"Received message: {messageContent}");
 
-                if (messageContent.Contains("TurnOn") && OnDeviceStateChanged != null)
+                if (messageContent.Contains("TurnOn")/* && OnDeviceStateChanged != null*/)
                 {
-                    await _deviceTwinManager.UpdateDeviceTwinAsync(true);
+                    await UpdateDeviceTwinAsync(true);
                     Console.WriteLine("OnDeviceStateChanged invoked.");
                     OnDeviceStateChanged.Invoke("On");
                 }
-                else if (messageContent.Contains("TurnOff") && OnDeviceStateChanged != null)
+                else if (messageContent.Contains("TurnOff"))
                 {
-                    await _deviceTwinManager.UpdateDeviceTwinAsync(false);
+                    await UpdateDeviceTwinAsync(false);
                     Console.WriteLine("OnDeviceStateChanged invoked.");
                     OnDeviceStateChanged.Invoke("Off");
                 }
@@ -251,6 +238,30 @@ public class DeviceManager : IDeviceManager
             }
 
             await Task.Delay(1000);
+        }
+    }
+    public async Task UpdateDeviceTwinAsync(bool isDeviceOn)
+    {
+        try
+        {
+            Console.WriteLine("Updating device twin...");
+
+            if (_client == null)
+                throw new InvalidOperationException("DeviceClient not initialized.");
+
+            var twinCollection = new TwinCollection()
+            {
+                ["deviceState"] = isDeviceOn ? "On" : "Off"
+            };
+
+            Console.WriteLine("Attempting to update device twin...");
+            await _client.UpdateReportedPropertiesAsync(twinCollection);
+
+            Console.WriteLine($"Device twin updated: isDeviceOn = {isDeviceOn}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating device twin: {ex.Message}");
         }
     }
 }
