@@ -4,6 +4,7 @@ using Iot_Recources.Data;
 using Iot_Recources.Factories;
 using Iot_Recources.Models;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
 
 namespace AC_Unit.ViewModels;
 
@@ -20,7 +21,10 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    private string _pageTitle = "Settings page";
+    private string pageTitle = "Settings page";
+
+    [ObservableProperty]
+    private string deviceId;
 
     [ObservableProperty]
     private bool isConfigured = false;
@@ -42,12 +46,13 @@ public partial class SettingsViewModel : ObservableObject
         await GetDeviceSettingsAsync();
     }
 
-    [RelayCommand]
+
     public async Task GetDeviceSettingsAsync()
     {
         var response = await _context.GetSettingsAsync();
         Settings = response.Result;
         IsConfigured = Settings != null;
+        DeviceId = await _context.GetDeviceIdFromConnectionStringAsync();
     }
 
     [RelayCommand]

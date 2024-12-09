@@ -27,15 +27,11 @@
         
         <TextBlock Grid.Row="0" Text="{Binding PageTitle}" />
         
-        <Button Grid.Row="1" Style="{StaticResource btn-back}" Command="{Binding GoToHomeCommand}" Content="&#xf060;" HorizontalAlignment="Left" />
-        <Button Grid.Row="1" Style="{StaticResource btn-power}" Command="{Binding CloseAppCommand}" Content="&#xf011;" HorizontalAlignment="Right" />
+        <Button Grid.Row="1" Style="{StaticResource btn-back}" Command="{Binding GoToHomeCommand}" Content="&#xf060;" HorizontalAlignment="Left" Margin="5"/>
+        <Button Grid.Row="1" Style="{StaticResource btn-power}" Command="{Binding CloseAppCommand}" Content="&#xf011;" HorizontalAlignment="Right" Margin="5" />
 
-        <StackPanel Grid.Row="2" HorizontalAlignment="Center">
-            <Button Content="Edit Settings" Style="{StaticResource btn-primary}" Command="{Binding ConfigureSettingsCommand}" Visibility="{Binding IsConfigured, Converter={StaticResource BoolConverter}}" />
-            <Button Content="Reset Settings" Style="{StaticResource btn-primary}" Command="{Binding ResetSettingsCommand}" />
-            <TextBlock Text="Configuration status:" FontFamily="{StaticResource poppins-regular}"  Foreground="White"/>
-            <TextBlock Text="{Binding IsConfigured}" />
-        </StackPanel>
+            <TextBlock Grid.Row="2" Text="Configuration status:" FontFamily="{StaticResource poppins-regular}"  Foreground="White" Margin="20"/>
+        <TextBlock Grid.Row="2" Text="{Binding IsConfigured}" HorizontalAlignment="Right" Margin="20" />
 
         <Grid Grid.Row="3" >
             <TextBlock Text="&#xf013;" FontFamily="{StaticResource fa-solid}" FontSize="50" Foreground="White" Padding="15" HorizontalAlignment="Left" VerticalAlignment="Center"/>
@@ -45,7 +41,7 @@
             <StackPanel>
 
                 <TextBlock Text="Device Id:" FontFamily="{StaticResource poppins-regular}" Foreground="White" HorizontalAlignment="Left"/>
-                <TextBlock Text="{Binding Settings.Id }" HorizontalAlignment="right" Margin="5"/>
+                <TextBlock Text="{Binding DeviceId }" HorizontalAlignment="right" Margin="5"/>
 
                 <TextBlock Text="Connection String:" FontFamily="{StaticResource poppins-regular}" Foreground="White" />
                 <TextBlock Text="{Binding Settings.IotHubConnectionString }"  HorizontalAlignment="right" Margin="5" />
