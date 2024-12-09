@@ -12,19 +12,17 @@ namespace AC_Unit.ViewModels;
 
 public partial class HomeViewModel : ObservableObject
 {
-    private IDeviceTwinManager _deviceTwinManager;
     private readonly IServiceProvider _serviceProvider;
     private readonly IDeviceManager _deviceManager;
     private CancellationTokenSource _cts;
 
-    public HomeViewModel(IServiceProvider serviceProvider, IDeviceManager deviceManager, IDeviceTwinManager deviceTwinManager)
+    public HomeViewModel(IServiceProvider serviceProvider, IDeviceManager deviceManager)
     {
         _serviceProvider = serviceProvider;
         _deviceManager = deviceManager;
-        _deviceTwinManager = deviceTwinManager;
 
-        StartListeningForMessages().ConfigureAwait(false);
         _deviceManager.OnDeviceStateChanged += UpdateDeviceState;
+        StartListeningForMessages().ConfigureAwait(false);
     }
 
     [ObservableProperty]
@@ -40,8 +38,34 @@ public partial class HomeViewModel : ObservableObject
     {
         try
         {
-            Console.WriteLine("Starting to listen for messages...");
+            // Ensure the device is connected first
+            var dbContext = _serviceProvider.GetRequiredService<IDatabaseContext>();
+            var deviceConnectionString = await dbContext.GetDeviceConnectionStringAsync();
+
+            if (string.IsNullOrEmpty(deviceConnectionString))
+            {
+                var registrationResult = await _deviceManager.RegisterDeviceAsync("AC-45ffebf0");
+                if (registrationResult.Succeeded)
+                {
+                    deviceConnectionString = registrationResult.Result;
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to register device: {registrationResult.Error}");
+                    return;
+                }
+            }
+
+            var connectionResult = await _deviceManager.ConnectToIotHubAsync(deviceConnectionString);
+            if (!connectionResult.Succeeded)
+            {
+                Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
+                return;
+            }
+
             _cts = new CancellationTokenSource();
+            Console.WriteLine("Starting to listen for messages...");
+
             await _deviceManager.ReceiveCloudToDeviceMessagesAsync(_cts.Token);
         }
         catch (Exception ex)
@@ -52,7 +76,7 @@ public partial class HomeViewModel : ObservableObject
 
     private void UpdateToggleButtonText()
     {
-        ToggleButtonText = DeviceState == "On" ? "OFF" : "ON";
+        ToggleButtonText = DeviceState == "Off" ? "Off" : "On";
     }
 
     public void UpdateDeviceState(string newState)
@@ -64,7 +88,7 @@ public partial class HomeViewModel : ObservableObject
             UpdateToggleButtonText();
 
             bool isDeviceOn = newState == "On";
-            _deviceTwinManager.UpdateDeviceTwinAsync(isDeviceOn).ConfigureAwait(false);
+            _deviceManager.UpdateDeviceTwinAsync(isDeviceOn).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
