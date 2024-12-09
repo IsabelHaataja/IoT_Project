@@ -32,22 +32,7 @@ public partial class App : Application
             services.AddSingleton<ILogger<SqliteContext>, Logger<SqliteContext>>();
             services.AddSingleton<IDatabaseContext, SqliteContext>();
 
-            services.AddSingleton<DeviceClient>(sp =>
-            {
-                var context = sp.GetRequiredService<IDatabaseContext>();
-                return Task.Run(async () =>
-                {
-                    var connectionString = await context.GetDeviceConnectionStringAsync();
-                    if (string.IsNullOrEmpty(connectionString))
-                    {
-                        throw new InvalidOperationException("Device connection string is null or empty.");
-                    }
-                    return DeviceClient.CreateFromConnectionString(connectionString, TransportType.Mqtt);
-                }).GetAwaiter().GetResult();
-            });
-
             services.AddSingleton<IDeviceManager, DeviceManager>();
-            services.AddSingleton<IDeviceTwinManager, DeviceTwinManager>();
 
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
@@ -72,8 +57,6 @@ public partial class App : Application
             var dbContext = host.Services.GetRequiredService<IDatabaseContext>();
             var deviceManager = host.Services.GetRequiredService<IDeviceManager>();
 
-            await deviceManager.InitializeDeviceClientAsync();
-
             var deviceId = "AC-45ffebf0";
 
             var existingConnectionString = await dbContext.GetDeviceConnectionStringAsync();
@@ -88,10 +71,12 @@ public partial class App : Application
 
                     // Connect the device to IoT Hub
                     var connectionResult = await deviceManager.ConnectToIotHubAsync(deviceConnectionString);
+
                     if (!connectionResult.Succeeded)
                     {
                         Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
                     }
+
                 }
                 else
                 {
@@ -105,6 +90,7 @@ public partial class App : Application
                 {
                     Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
                 }
+
             }
         }
         catch (Exception ex)
@@ -129,3 +115,4 @@ public partial class App : Application
         base.OnExit(e);
     }
 }
+
