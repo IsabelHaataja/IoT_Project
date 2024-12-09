@@ -190,4 +190,34 @@ public class SqliteContext : IDatabaseContext
             return string.Empty;
         }
     }
+    public async Task<string?> GetDeviceIdFromConnectionStringAsync()
+    {
+        try
+        {
+            var settings = await GetSettingsAsync();
+            var deviceConnectionString = settings.Result?.DeviceConnectionString;
+
+            if (string.IsNullOrEmpty(deviceConnectionString))
+            {
+                Console.WriteLine("Device connection string is missing in the database.");
+                return null;
+            }
+            var deviceIdPart = deviceConnectionString.Split(';')
+                .FirstOrDefault(part => part.StartsWith("DeviceId=", StringComparison.OrdinalIgnoreCase));
+
+            if (deviceIdPart == null)
+            {
+                Console.WriteLine("DeviceId not found in the device connection string.");
+                return null;
+            }
+
+            var deviceId = deviceIdPart.Split('=')[1];
+            return deviceId;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while retrieving the DeviceId: {ex.Message}");
+            return null;
+        }
+    }
 }
