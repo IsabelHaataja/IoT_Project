@@ -2,48 +2,29 @@
 using Iot_Recources.Models;
 using Microsoft.Extensions.Logging;
 using SQLite;
+using System.Diagnostics;
+using System.Text;
 
 namespace Iot_Recources.Data;
 
 public class SqliteContext : IDatabaseContext
 {
     private readonly ILogger<SqliteContext> _logger;
-    private readonly SQLiteAsyncConnection? _context;
-    public SqliteContext(ILogger<SqliteContext> logger, Func<string> directoryPath, string databaseName = "iot_device_database.db3")
+    private SQLiteAsyncConnection _context;
+    private readonly string _deviceType = "AC";
+    public SqliteContext(ILogger<SqliteContext> logger)
     {
         _logger = logger;
 
-        try
-        {
-            var databsePath = Path.Combine(directoryPath(), databaseName);
-            if (string.IsNullOrWhiteSpace(databsePath))
-                throw new ArgumentException("The database path cannot be null or empty.");
-            
-            _context = new SQLiteAsyncConnection(databsePath);
+        string dbFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "SmarthomeDatabase");
 
-            CreateTablesAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex) 
-        {
-            _logger.LogError(ex.Message, "An error occurred while creating database connection.");
-        }
+        string dbPath = Path.Combine(dbFolder, "Smarthome_database.db3");
+
+        _context = new SQLiteAsyncConnection(dbPath);
+
+        SetDeviceTypeAsync(_deviceType).ConfigureAwait(false);
     }
-    public async Task CreateTablesAsync()
-    {
-        try
-        {
-            if (_context == null)
-                throw new ArgumentException("The database has not been initialized.");
 
-            await _context.CreateTableAsync<DeviceSettings>();
-
-            _logger.LogInformation("Database tables were created successfully.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex.Message, "An error occurred while creating database tables.");
-        }
-    }
     public async Task<ResponseResult<DeviceSettings>> GetSettingsAsync()
     {
         try
@@ -56,8 +37,30 @@ public class SqliteContext : IDatabaseContext
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred while getting device settings.");
+            _logger.LogDebug(ex, "An error occurred while getting device settings.");
             return ResponseResultFactory.Error<DeviceSettings>("An error occurred while getting device settings.");
+        }
+    }
+
+    public async Task<ResponseResult<DeviceSettings>> SetDeviceTypeAsync(string deviceType)
+    {
+        try
+        {
+            var deviceSettings = (await _context!.Table<DeviceSettings>().ToListAsync()).SingleOrDefault();
+            if (deviceSettings != null && deviceSettings.Type == null)
+            {
+                deviceSettings.Type = deviceType;
+                await SaveSettingsAsync(deviceSettings);
+
+                return ResponseResultFactory.Success(deviceSettings);
+            }
+            else
+                return ResponseResultFactory.Error<DeviceSettings>("DeviceSettings type is already set.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "An error occurred while setting device settings type.");
+            return ResponseResultFactory.Error<DeviceSettings>("An error occurred while setting device settings type.");
         }
     }
 
@@ -89,8 +92,7 @@ public class SqliteContext : IDatabaseContext
 
                 if (response.Result != null)
                 {
-                    response.Result.Location = settings.Location;
-                    response.Result.ConnectionString = settings.ConnectionString;
+                    response.Result.IotHubConnectionString = settings.IotHubConnectionString;
                     response.Result.Type = settings.Type;
 
                     await _context!.UpdateAsync(settings);
@@ -110,6 +112,108 @@ public class SqliteContext : IDatabaseContext
         {
             _logger.LogError(ex, "Failed to save settings: device ID is null or empty.");
             return ResponseResultFactory.Error("Failed to save settings: device ID is null or empty.");
+        }
+    }
+    
+    public async Task<ResponseResult> SaveDeviceConnectionStringAsync(string connectionString)
+    {
+        try
+        {
+            var response = await GetSettingsAsync();
+
+            if (response.Result != null)
+            {
+                response.Result.DeviceConnectionString = connectionString;
+                await _context.UpdateAsync(response.Result);
+
+                return ResponseResultFactory.Success("Device connection string updated successfully.");
+            }
+            else
+            {
+                return ResponseResultFactory.Error("No device settings found to update.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save device connection string.");
+            return ResponseResultFactory.Error("Failed to save device connection string.");
+        }
+    }
+
+    public async Task<string> GetIotHubConnectionStringAsync()
+    {
+        try
+        {
+            var response = await GetSettingsAsync();
+            var connectionString = response.Result?.IotHubConnectionString ?? string.Empty;
+
+            var hostName = connectionString.Split(';')
+                .FirstOrDefault(part => part.StartsWith("HostName=", StringComparison.OrdinalIgnoreCase))
+                ?.Split('=')[1];
+
+            // add .azure-devices.net if missing
+            if (hostName != null && !hostName.EndsWith(".azure-devices.net"))
+            {
+                hostName += ".azure-devices.net";
+
+                // Rebuild the connection string with the correct HostName
+                connectionString = connectionString.Replace($"HostName={hostName.Substring(0, hostName.IndexOf('.'))}", $"HostName={hostName}");
+            }
+
+            Debug.WriteLine($"Got iothub connection string {connectionString}");
+
+            return connectionString;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while getting the connection string.");
+            return string.Empty;
+        }
+    }
+    public async Task<string> GetDeviceConnectionStringAsync()
+    {
+        try
+        {
+            var response = await GetSettingsAsync();
+            var connectionString = response.Result?.DeviceConnectionString ?? string.Empty;
+
+            Debug.WriteLine($"Got Device connection string {connectionString}");
+            return connectionString;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while getting the device connection string.");
+            return string.Empty;
+        }
+    }
+    public async Task<string?> GetDeviceIdFromConnectionStringAsync()
+    {
+        try
+        {
+            var settings = await GetSettingsAsync();
+            var deviceConnectionString = settings.Result?.DeviceConnectionString;
+
+            if (string.IsNullOrEmpty(deviceConnectionString))
+            {
+                Console.WriteLine("Device connection string is missing in the database.");
+                return null;
+            }
+            var deviceIdPart = deviceConnectionString.Split(';')
+                .FirstOrDefault(part => part.StartsWith("DeviceId=", StringComparison.OrdinalIgnoreCase));
+
+            if (deviceIdPart == null)
+            {
+                Console.WriteLine("DeviceId not found in the device connection string.");
+                return null;
+            }
+
+            var deviceId = deviceIdPart.Split('=')[1];
+            return deviceId;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while retrieving the DeviceId: {ex.Message}");
+            return null;
         }
     }
 }

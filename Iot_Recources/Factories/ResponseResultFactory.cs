@@ -10,7 +10,7 @@ public static class ResponseResultFactory
         return new ResponseResult
         {
             Succeeded = true,
-            Result = result
+            //Result = result
         };
     }
     public static ResponseResult Error(string error)

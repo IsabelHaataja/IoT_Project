@@ -24,14 +24,14 @@ public static class DeviceSettingsFactory
             Id = id
         };
     }
-    public static DeviceSettings Create(string id, string? location, string? type, string? connectionString)
+    public static DeviceSettings Create(string id, string? type, string? iotHubConnectionString, string? emailAddress)
     {
         return new DeviceSettings()
         {
             Id = id,
-            Location = location,
             Type = type,
-            ConnectionString = connectionString
+            IotHubConnectionString = iotHubConnectionString,
+            EmailAddress = emailAddress
         };
     }
 }

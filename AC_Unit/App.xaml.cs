@@ -2,6 +2,7 @@
 using AC_Unit.Views;
 using Iot_Recources.Data;
 using Iot_Recources.Services;
+using Microsoft.Azure.Devices.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -27,15 +28,11 @@ public partial class App : Application
         .ConfigureServices(services =>
         {
             services.AddLogging(configure => configure.AddConsole());
-            services.AddSingleton<IDatabaseContext>(sp =>
-            {
-                var logger = sp.GetRequiredService<ILogger<SqliteContext>>();
-                var directoryPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                return new SqliteContext(logger, () => directoryPath);
-            });
 
-            // TODO - add connectionstring to iot device
-            services.AddSingleton<IDeviceManager>(new DeviceManager(""));
+            services.AddSingleton<ILogger<SqliteContext>, Logger<SqliteContext>>();
+            services.AddSingleton<IDatabaseContext, SqliteContext>();
+
+            services.AddSingleton<IDeviceManager, DeviceManager>();
 
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
@@ -50,16 +47,51 @@ public partial class App : Application
     }
 
     protected override async void OnStartup(StartupEventArgs e)
-    {         
-        //base.OnStartup(e);        
-        var mainWindow = host!.Services.GetRequiredService<MainWindow>();
-        mainWindow.Show();
-
-        using var cts = new CancellationTokenSource();
+    {
+            base.OnStartup(e);
+            var mainWindow = host!.Services.GetRequiredService<MainWindow>();
+            mainWindow.Show();
 
         try
         {
-            await host!.RunAsync();
+            var dbContext = host.Services.GetRequiredService<IDatabaseContext>();
+            var deviceManager = host.Services.GetRequiredService<IDeviceManager>();
+
+            var deviceId = "AC-45ffebf0";
+
+            var existingConnectionString = await dbContext.GetDeviceConnectionStringAsync();
+
+            if (string.IsNullOrEmpty(existingConnectionString))
+            {
+                var registrationResult = await deviceManager.RegisterDeviceAsync(deviceId);
+
+                if (registrationResult.Succeeded)
+                {
+                    var deviceConnectionString = registrationResult.Result;
+
+                    // Connect the device to IoT Hub
+                    var connectionResult = await deviceManager.ConnectToIotHubAsync(deviceConnectionString);
+
+                    if (!connectionResult.Succeeded)
+                    {
+                        Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
+                    }
+
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to register device: {registrationResult.Error}");
+                }
+            }
+            else
+            {
+                var connectionResult = await deviceManager.ConnectToIotHubAsync(existingConnectionString);
+                if (!connectionResult.Succeeded)
+                {
+                    Console.WriteLine($"Failed to connect device: {connectionResult.Error}");
+                }
+
+            }
         }
         catch (Exception ex)
         {
@@ -83,3 +115,4 @@ public partial class App : Application
         base.OnExit(e);
     }
 }
+

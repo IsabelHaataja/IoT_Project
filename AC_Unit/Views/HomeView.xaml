@@ -8,15 +8,32 @@
              d:DataContext="{d:DesignInstance Type=viewmodels:HomeViewModel}"
              Background="CornflowerBlue"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="300">
+             d:DesignHeight="600" d:DesignWidth="350">
     
-    <Grid Margin="15">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="auto" />
-        </Grid.RowDefinitions>
-        
-            <Button Grid.Row="1" Style="{StaticResource btn-menu}" Command="{Binding GoToSettingsCommand}" Content="&#xf1de;" HorizontalAlignment="Right" />
+    <Border CornerRadius="30">
+        <Grid Margin="15">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="auto" />
+                <RowDefinition Height="auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="auto" />
+            </Grid.RowDefinitions>
+          
+            <Button Grid.Row="0" Style="{StaticResource btn-settings}" Command="{Binding GoToSettingsCommand}" Content="&#xf1de;" HorizontalAlignment="Left" />
+            <Button Grid.Row="0" Style="{StaticResource btn-power}" Command="{Binding CloseAppCommand}" Content="&#xf011;" HorizontalAlignment="Right" />
+          
+            <StackPanel Grid.Row="1" Margin="20">
+                <TextBlock Text="Smart Home" FontSize="45" FontFamily="{StaticResource poppins-thin}" Foreground="White" HorizontalAlignment="Center"/>
+                <TextBlock Text="AC UNIT" FontSize="30" FontFamily="{StaticResource poppins-regular}" Foreground="White" HorizontalAlignment="Center" />
+            </StackPanel>
 
-    </Grid>
+            <Grid Grid.Row="2" >
+                <TextBlock Text="&#xf863;" FontFamily="{StaticResource fa-solid}" FontSize="170" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+
+            <Button x:Name="status" Grid.Row="3" Content="{Binding ToggleButtonText}" Style="{StaticResource btn-primary}" Margin="10" Padding="50,10" IsEnabled="False"/>                
+
+        </Grid>        
+    </Border>
+
 </UserControl>
