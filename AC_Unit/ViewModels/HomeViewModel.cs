@@ -38,7 +38,6 @@ public partial class HomeViewModel : ObservableObject
     {
         try
         {
-            // Ensure the device is connected first
             var dbContext = _serviceProvider.GetRequiredService<IDatabaseContext>();
             var deviceConnectionString = await dbContext.GetDeviceConnectionStringAsync();
 
@@ -83,7 +82,6 @@ public partial class HomeViewModel : ObservableObject
     {
         try
         {
-            Console.WriteLine("Updating device state..");
             DeviceState = newState;
             UpdateToggleButtonText();
 

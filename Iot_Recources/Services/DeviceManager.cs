@@ -200,8 +200,6 @@ public class DeviceManager : IDeviceManager
             return;
         }
 
-        Debug.WriteLine("Listening for cloud-to-device messages...");
-
         while (!ct.IsCancellationRequested)
         {
             try
@@ -244,8 +242,6 @@ public class DeviceManager : IDeviceManager
     {
         try
         {
-            Console.WriteLine("Updating device twin...");
-
             if (_client == null)
                 throw new InvalidOperationException("DeviceClient not initialized.");
 
@@ -254,7 +250,6 @@ public class DeviceManager : IDeviceManager
                 ["deviceState"] = isDeviceOn ? "On" : "Off"
             };
 
-            Console.WriteLine("Attempting to update device twin...");
             await _client.UpdateReportedPropertiesAsync(twinCollection);
 
             Console.WriteLine($"Device twin updated: isDeviceOn = {isDeviceOn}");

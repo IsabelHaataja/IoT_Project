@@ -18,12 +18,8 @@ public class SqliteContext : IDatabaseContext
 
         string dbFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "SmarthomeDatabase");
 
-
-        // Construct the full path to the database file
         string dbPath = Path.Combine(dbFolder, "Smarthome_database.db3");
-        Debug.WriteLine($"Database Path: {dbPath}");
 
-        // Initialize the SQLite connection
         _context = new SQLiteAsyncConnection(dbPath);
 
         SetDeviceTypeAsync(_deviceType).ConfigureAwait(false);
